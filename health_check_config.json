@@ -1,0 +1,12 @@
+[
+  {
+    "upstream": "foo.com",
+    "host": "foo.com",
+    "checkPath": "/test"
+  },
+  {
+    "upstream": "foo2.com",
+    "host": "foo2.com",
+    "checkPath": "/test"
+  }
+]

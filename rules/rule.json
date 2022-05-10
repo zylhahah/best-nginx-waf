@@ -1,0 +1,29 @@
+[
+  {
+    "rule_id": "R-000",
+    "rule_name": "Crawler-Deny",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Crawler",
+    "rule_range": "USER_AGENT;",
+    "rule_regex": "crawler"
+  },
+  {
+    "rule_id": "R-001",
+    "rule_name": "XSS-Reflection-Xss",
+    "action": "CHAIN",
+    "father_rule": "",
+    "rule_class": "XSS-Injection",
+    "rule_range": "BODY;HEADER;",
+    "rule_regex": "<script>"
+  },
+  {
+    "rule_id": "R-002",
+    "rule_name": "XSS-Reflection-Xss-1",
+    "action": "RECORD",
+    "father_rule": "R-001",
+    "rule_class": "XSS-Injection",
+    "rule_range": "HEADER;",
+    "rule_regex": "<script>alert"
+  }
+]
