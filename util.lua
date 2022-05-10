@@ -109,11 +109,9 @@ function _M.get_user_agent()
     return USER_AGENT
 end
 
-
-
 function _M.send_ding_talk(msg)
     _M.pure_log("----------------send_ding_ding_msg ------------------")
-    _M.pure_log("msg: " ..msg)
+    _M.pure_log("msg: " .. msg)
 
     if config.ding_ding == "off" then
         _M.pure_log("config is off for send_ding_ding_msg")
@@ -176,11 +174,10 @@ function _M.http_post(attackRecord, url)
         end
     end
     if res ~= nil then
-        _M.pure_log("http post host[" .. config.server_addr .. "] [".. url .. "] status: " .. res.status .. " body: " .. res.body  .. " cost: " .. (ngx.now() - record_start_time))
+        _M.pure_log("http post host[" .. config.server_addr .. "] [" .. url .. "] status: " .. res.status .. " body: " .. res.body .. " cost: " .. (ngx.now() - record_start_time))
         return res.body
     end
 end
-
 
 function _M.unsafe_http_post(premature, body, uri)
     if premature then
@@ -188,8 +185,6 @@ function _M.unsafe_http_post(premature, body, uri)
     end
     _M.http_post(body, uri)
 end
-
-
 
 function _M.log_response(waf_token)
     ngx.update_time()
@@ -212,7 +207,7 @@ function _M.log_response(waf_token)
     if RESP_BODY == nil or RESP_BODY == "" then
         RESP_BODY = ""
     end
-     _M.pure_log("log_response status: " .. ngx.status .. " body: " .. RESP_BODY)
+    _M.pure_log("log_response status: " .. ngx.status .. " body: " .. RESP_BODY)
     local response_obj = {
         attackIp = _M.get_client_ip(),
         attackTime = string.sub(ngx.localtime(), 1, 10) .. "T" .. string.sub(ngx.localtime(), 12, -1) .. "+08:00",
@@ -240,12 +235,11 @@ function _M.log_response(waf_token)
     file:close()
     _M.pure_log(log_line)
     if config.attack_upload == "on" then
-        -- _M.http_post(response_obj_raw, config.config_resp_upload_uri)
         local ok, err = ngx.timer.at(0, _M.unsafe_http_post, response_obj_raw, config.resp_upload_uri)
         if not ok then
-           util.pure_log("failed to unsafe_http_post response")
-           util.pure_log(err)
-           return
+            util.pure_log("failed to unsafe_http_post response")
+            util.pure_log(err)
+            return
         end
     end
     _M.pure_log("response record post cost time:" .. (ngx.now() - record_start_time))
@@ -325,28 +319,35 @@ function _M.block_attack()
     else
         ngx.header.content_type = "text/html"
         ngx.status = ngx.HTTP_FORBIDDEN
-        ngx.say(string.format(config.output_html, _M.get_client_ip()))
+        ngx.say(string.format(config.block_output_html, _M.get_client_ip()))
         ngx.exit(ngx.HTTP_FORBIDDEN)
     end
 end
 
-local base_char ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' -- for encoding/decoding
+local base_char = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' -- for encoding/decoding
 
 -- decoding
 function _M.base64_dec(data)
-    data = string.gsub(data, '[^'..base_char..'=]', '')
+    data = string.gsub(data, '[^' .. base_char .. '=]', '')
     return (data:gsub('.', function(x)
-        if (x == '=') then return '' end
-        local r,f='',(base_char:find(x)-1)
-        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+        if (x == '=') then
+            return ''
+        end
+        local r, f = '', (base_char:find(x) - 1)
+        for i = 6, 1, -1 do
+            r = r .. (f % 2 ^ i - f % 2 ^ (i - 1) > 0 and '1' or '0')
+        end
         return r;
-    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
-        if (#x ~= 8) then return '' end
-        local c=0
-        for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
-            return string.char(c)
+    end)        :gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+        if (#x ~= 8) then
+            return ''
+        end
+        local c = 0
+        for i = 1, 8 do
+            c = c + (x:sub(i, i) == '1' and 2 ^ (8 - i) or 0)
+        end
+        return string.char(c)
     end))
 end
-
 
 return _M

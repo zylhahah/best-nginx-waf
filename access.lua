@@ -37,43 +37,67 @@ end
 -- 判断正则表达式
 local function rule_regex_match(data, rules, stage)
     local matchedRuleTable = {}
+    util.log(string.format("================== In rule_regex_match rules size[%s] ===================", #rules))
     for _, rule in pairs(rules) do
-        if rule ~= nil and policy.pattern ~= nil then
+        util.log(rule)
+        util.log(rule.rule_regex)
+        if rule ~= nil and rule.rule_regex ~= nil then
+            util.log(string.format("====Try Rule [%s]", rule.rule_id))
             local m = rule_match(data, rule.rule_regex, 'jio')
-            if m then --如果匹配到敏感信息
-            if rule.action == "DENY" or rule.action == "RECORD" then
-                util.record_attack(config.log_dir, rule.rule_id, rule.rule_regex, rule.action, rule.class, ngx.var.request_uri, data, m[0], stage)
+            if m then
+                util.log(string.format("================== Matched Rule: [%s] Action: [%s] ===================", rule.rule_id, rule.action))
+                --如果匹配到敏感信息
+                if rule.action == "DENY" or rule.action == "RECORD" then
+                    util.log(string.format("================== Waf Record Triggered By Rule [%s] ===================", rule.rule_id))
+                    util.record_attack(config.log_dir, rule.rule_id, rule.rule_regex, rule.action, rule.class, ngx.var.request_uri, data, m[0], stage)
+                end
+                if rule.action == "DENY" then
+                    util.log(string.format("================== Waf Block Triggered By Rule [%s] ===================", rule.rule_id))
+                    util.block_attack()
+                    return nil
+                end
+                table.insert(matchedRuleTable, rule)
+                util.log(string.format("================== matchedRuleTable size [%s] ===================", #matchedRuleTable))
             end
-            if rule.action == "DENY" then
-                util.log(string.format("================== Waf Block Triggered By Rule [%s] ===================", rule.rule_id))
-                util.block_attack()
-                return
-            end
-            matchedRuleTable[rule.rule_id] = rule
         end
+        return matchedRuleTable
     end
-    return matchedRuleTable
 end
 
+local function son_rules_check(data_for_check, FATHER_RULES, stage, limit)
+    limit = limit - 1
 
-local function data_check(data, ROOT_RULES, stage)
-    --父策略
-
-    local ROOT_POLICY_MATCHED_TABLE
-    if data ~= nil and ROOT_RULES ~= nil and table_len(ROOT_RULES) > 0 then
-        ROOT_RULE_MATCHED_TABLE = rule_regex_match(unescape(data), ROOT_RULES, stage)
-    end
-    --子策略
-    if table_len(ROOT_RULE_MATCHED_TABLE) > 0 then
-        for _, ROOT_RULE in pairs(ROOT_RULE_MATCHED_TABLE) do
-            local SON_RULES = policy.CHILD_RULES_MAP[ROOT_RULE.rule_id]
-            if data ~= nil and SON_RULES ~= nil then
-                local CHILD_RULE_TABLE = rule_regex_match(unescape(data), SON_RULES, stage)
-                if table_len(CHILD_RULE_TABLE) > 0 then
-                    return true
-                end
+    -- build son rules
+    local all_son_rules = {}
+    for _, father_rule in pairs(FATHER_RULES) do
+        local son_rules = policy.CHILD_RULES_MAP[father_rule.rule_id]
+        if son_rules ~= nil and table_len(son_rules) > 0 then
+            for _, son_rule in pairs(son_rules) do
+                table.insert(all_son_rules, son_rule)
             end
         end
+    end
+    util.log(string.format("================== all_son_rules size [%s] ===================", #all_son_rules))
+    if table_len(all_son_rules) > 0 and data_for_check ~= nil and limit > 0 then
+        local matchedRuleTable = rule_regex_match(unescape(data_for_check), all_son_rules, stage)
+        if table_len(matchedRuleTable) > 0 and matchedRuleTable ~= nil then
+            return son_rules_check(data_for_check, matchedRuleTable, stage, limit)
+        end
+    end
+    return false
+end
+
+local function data_check(data_for_check, ROOT_RULES, stage)
+    util.log(string.format("================== Start Data Check, Rule Size [%s] On Stage [%s] ===================", #ROOT_RULES, stage))
+    local ROOT_RULE_MATCHED_TABLE
+    if data_for_check ~= nil and ROOT_RULES ~= nil and table_len(ROOT_RULES) > 0 then
+        ROOT_RULE_MATCHED_TABLE = rule_regex_match(unescape(data_for_check), ROOT_RULES, stage)
+        util.log(string.format("================== ROOT_RULE_MATCHED_TABLE SIZE [%s] ===================", #ROOT_RULE_MATCHED_TABLE))
+    end
+
+    local limit = 5
+    if table_len(ROOT_RULE_MATCHED_TABLE) > 0 and ROOT_RULE_MATCHED_TABLE ~= nil then
+        return son_rules_check(data_for_check, ROOT_RULE_MATCHED_TABLE, stage, limit)
     end
     return false
 end
@@ -81,7 +105,7 @@ end
 
 -- Http Header检查
 local function head_attack_check()
-    if config.headers_check == "on" and policy.ROOT_HEADER_RULES ~= nil and #policy.ROOT_HEADER_RULES > 0 then
+    if config.head_check == "on" and policy.ROOT_HEADER_RULES ~= nil and #policy.ROOT_HEADER_RULES > 0 then
         local headers = ngx.req.get_headers()
         local request_headers_all = ""
         for k, v in pairs(headers) do
@@ -95,16 +119,15 @@ local function head_attack_check()
             request_headers_all = request_headers_all .. rowtext
         end
         if request_headers_all ~= nil then
-            local result = data_check(unescape(request_headers_all), policy.ROOT_HEADER_RULES, "HEAD_CHECK")
-            return result
+            return data_check(unescape(request_headers_all), policy.ROOT_HEADER_RULES, "HEAD_CHECK")
         end
     end
     return false
 end
 
--- UserAgent检查
--- 匹配字段式样:api-Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:59.0) Gecko/20100101 Firefox/59.0
 local function user_agent_attack_check()
+    util.log(string.format("================== #policy.ROOT_USER_AGENT_RULES [%s] ===================", #policy.ROOT_USER_AGENT_RULES))
+    util.log(policy.ROOT_USER_AGENT_RULES)
     if config.user_agent_check == "on" and policy.ROOT_USER_AGENT_RULES ~= nil and #policy.ROOT_USER_AGENT_RULES > 0 then
         local USER_AGENT = ngx.var.http_user_agent
         if USER_AGENT ~= nil then
@@ -118,7 +141,7 @@ end
 -- URL检查
 -- 匹配字段式样:api-index.html
 local function url_attack_check()
-    if config.url_check == "on" and policy.ROOT_URL_RULES ~= nil then
+    if config.uri_check == "on" and policy.ROOT_URL_RULES ~= nil then
         local REQ_URI = ngx.var.request_uri
         if REQ_URI ~= nil and policy.ROOT_URL_RULES ~= nil then
             return data_check(unescape(REQ_URI), policy.ROOT_URL_RULES, "URL_CHECK")
@@ -280,10 +303,11 @@ local function frequency_control_check()
             util.pure_log(string.format("remote_addr is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
-
-        for ipKey, ipVal in pairs(policy.FREQUENCY_IP_BLACK_LIST) do
-            if remote_addr == ipKey then
-                return false
+        if policy.FREQUENCY_IP_BLACK_LIST ~= nil and table_len(policy.FREQUENCY_IP_BLACK_LIST) > 0 then
+            for ipKey, ipVal in pairs(policy.FREQUENCY_IP_BLACK_LIST) do
+                if remote_addr == ipKey then
+                    return false
+                end
             end
         end
 
@@ -299,7 +323,8 @@ local function frequency_control_check()
         if findCount >= policy.SECOND_MAX_VISITS then
             util.log(string.format("COMPARE IP findCount [%s] AND MAX_VISITS [%s]============", findCount, policy.SECOND_MAX_VISITS))
         end
-        if findCount >= policy.SECOND_MAX_VISITS then -- 超过最大频次 TODO 需要根据换算 得出
+        if findCount >= policy.SECOND_MAX_VISITS then
+            -- 超过最大频次 TODO 需要根据换算 得出
             -- 加入 ip 黑名单
             local ip_block_time = ngx.now + policy.IP_BLOCK_TIME
             policy.FREQUENCY_IP_BLACK_LIST[remote_addr] = ip_block_time
@@ -344,7 +369,6 @@ local function ends(str, substr)
     return substr == '' or str:sub(-substr:len()) == substr
 end
 
-
 local function attack_check()
     if config.attack_check == "on" and policy.ENABLE == "Enable" then
         if head_attack_check() then
@@ -359,9 +383,8 @@ local function attack_check()
     return false
 end
 
-
-local function waf()
-
+local function access_check()
+    util.log(string.format(" ---------  waf req in ------------- "))
     if config.waf_enable ~= "on" or policy.ENABLE ~= "Enable" then
         return
     end
@@ -369,7 +392,7 @@ local function waf()
     local uri = ngx.var.uri:lower()
     local ignore = ends(uri, ".jpg") or ends(uri, ".jpeg")
             or ends(uri, ".js") or ends(uri, ".css")
-             or ends(uri, ".gif") or ends(uri, ".png")
+            or ends(uri, ".gif") or ends(uri, ".png")
     if ignore then
         return
     end
@@ -385,4 +408,4 @@ local function waf()
     end
 end
 
-waf()
+access_check()

@@ -3,9 +3,7 @@ local config = require("config")
 local policy = require("policy")
 local cjson = require("cjson.safe")
 local util = require("util")
-local rule = require("rule")
-local register_waf_client = false
-
+local rule_util = require("rule_util")
 
 local function init_health_check()
     local hc = require "resty.upstream.healthcheck"
@@ -33,13 +31,11 @@ local function init_health_check()
             concurrency = 10, -- concurrency level for test requests
         }
         if not ok then
-            util.pure_log("failed to create the health check timer"..err)
+            util.pure_log("failed to create the health check timer" .. err)
             return
         end
     end
 end
-
-
 
 -- update
 local function refresh_policy(new_policy)
@@ -58,80 +54,80 @@ local function refresh_policy(new_policy)
     policy.ROOT_HEADER_RULES = new_policy.ROOT_HEADER_RULES
     policy.ROOT_USER_AGENT_RULES = new_policy.ROOT_USER_AGENT_RULES
     policy.CHILD_RULES_MAP = new_policy.CHILD_RULES_MAP
-    rule.rewrite_policy(policy)
+    rule_util.rewrite_policy(policy)
 end
 
-
-
 local function init_rules_by_local()
-   base = rule.read_rule('base')
-   ip = rule.read_rule('ip')
-   rules = rule.read_rule('rule')
-   uri = rule.read_rule('uri')
-   local base_config_obj = cjson.decode(base)
-   local ip_config_obj = cjson.decode(ip)
-   local rules_config_obj = cjson.decode(rules)
-   local uri_config_obj = cjson.decode(uri)
-   local new_policy = {}
-   new_policy.ROOT_USER_AGENT_RULES = {}
-   new_policy.ROOT_URI_RULES = {}
-   new_policy.ROOT_PARAM_RULES = {}
-   new_policy.ROOT_BODY_RULES = {}
-   new_policy.ROOT_HEADER_RULES = {}
-   new_policy.CHILD_RULES_MAP = {}
+    local base = rule_util.read_rule('base')
+    local ip = rule_util.read_rule('ip')
+    local rules = rule_util.read_rule('rule')
+    local uri = rule_util.read_rule('uri')
+    local base_config_obj = cjson.decode(base)
+    local ip_config_obj = cjson.decode(ip)
+    local rules_config_obj = cjson.decode(rules)
+    local uri_config_obj = cjson.decode(uri)
+    local new_policy = {}
+    new_policy.ROOT_USER_AGENT_RULES = {}
+    new_policy.ROOT_URI_RULES = {}
+    new_policy.ROOT_PARAM_RULES = {}
+    new_policy.ROOT_BODY_RULES = {}
+    new_policy.ROOT_HEADER_RULES = {}
+    new_policy.CHILD_RULES_MAP = {}
+    new_policy.RULE_LOAD_MODE = "local"
+    new_policy.ENABLE = "Enable"
+    if base_config_obj ~= nil then
+        new_policy.SECOND_MAX_VISITS = base_config_obj.second_max_visits
+        new_policy.IP_BLOCK_SECOND = base_config_obj.ip_block_second
+    end
 
-   if base_config_obj ~= nil then
-       new_policy.SECOND_MAX_VISITS = base_config_obj.second_max_visits
-       new_policy.IP_BLOCK_SECOND = base_config_obj.ip_block_second
-   end
+    if ip_config_obj ~= nil then
+        new_policy.IP_WHITE_LIST = ip_config_obj.white_ip
+        new_policy.IP_BLACK_LIST = ip_config_obj.black_ip
+    end
 
-   if ip_config_obj ~= nil then
-       new_policy.IP_WHITE_LIST = ip_config_obj.white_ip
-       new_policy.IP_BLACK_LIST = ip_config_obj.black_ip
-   end
+    if uri_config_obj ~= nil then
+        new_policy.URL_WHITE_LIST = uri_config_obj.white_uri
+        new_policy.URL_BLACK_LIST = uri_config_obj.black_uri
+    end
 
-   if uri_config_obj ~= nil then
-       new_policy.URL_WHITE_LIST = uri_config_obj.white_uri
-       new_policy.URL_BLACK_LIST = uri_config_obj.black_uri
-   end
+    if rules_config_obj == nil then
+        return
+    end
 
-   if rules_config_obj == nil then
-       return
-   end
+    -- build root rules
+    for _, rule_obj in pairs(rules_config_obj) do
+        if rule_obj.father_rule == nil or rule_obj.father_rule == "" then
+            if string.find(rule_obj.rule_range, "URI") ~= nil then
+                table.insert(new_policy.ROOT_URI_RULES, rule_obj)
+            end
+            if string.find(rule_obj.rule_range, "PARAM") ~= nil then
+                table.insert(new_policy.ROOT_PARAM_RULES, rule_obj)
+            end
+            if string.find(rule_obj.rule_range, "BODY") ~= nil then
+                table.insert(new_policy.ROOT_BODY_RULES, rule_obj)
+            end
+            if string.find(rule_obj.rule_range, "HEADER") ~= nil then
+                table.insert(new_policy.ROOT_HEADER_RULES, rule_obj)
+            end
+            if string.find(rule_obj.rule_range, "USER_AGENT") ~= nil then
+                table.insert(new_policy.ROOT_USER_AGENT_RULES, rule_obj)
+            end
+        else
+            if new_policy.CHILD_RULES_MAP[rule_obj.father_rule] == nil then
+                new_policy.CHILD_RULES_MAP[rule_obj.father_rule] = {}  -- key is father_rule rule_id
+            end
+            table.insert(new_policy.CHILD_RULES_MAP[rule_obj.father_rule], rule_obj)
+        end
+    end
 
-   -- build root rules
-   for _, rule in pairs(rules_config_obj) do
-       if rule ~= nil then
-           if rule.father_rule == nil or rule.father_rule == "" then
-               if string.find(rule.rule_range, "URI") ~= nil then
-                   table.insert(new_policy.ROOT_URI_RULES, rule)
-               end
-               if string.find(rule.rule_range, "PARAM") ~= nil then
-                   table.insert(new_policy.ROOT_PARAM_RULES, rule)
-               end
-               if string.find(rule.rule_range, "BODY") ~= nil then
-                   table.insert(new_policy.ROOT_BODY_RULES, rule)
-               end
-               if string.find(rule.rule_range, "HEADER") ~= nil then
-                   table.insert(new_policy.ROOT_HEADER_RULES, rule)
-               end
-               if string.find(rule.rule_range, "USER_AGENT") ~= nil then
-                   table.insert(new_policy.ROOT_USER_AGENT_RULES, rule)
-               end
-           else
-                new_policy.CHILD_RULES_MAP[rule.father_rule] = rule  -- key is father_rule rule_id
-           end
-       end
-   end
-   new_policy.RULE_LOAD_MODE = "local"
-   refresh_policy(new_policy)
+    refresh_policy(new_policy)
 end
 
 local function policy_update_from_remote(strategy_base64_str)
     local record_start_time = ngx.now()
     util.pure_log(string.format("[----- current redis waf config version [%s], and start update policy]", redis_waf_config_version))
     if strategy_base64_str == nil then
-        util.pure_log(string.format("[----- [ redis get nil by key ".. strategy_key .." ] -----"))
+        util.pure_log(string.format("[----- [ redis get nil by key " .. strategy_key .. " ] -----"))
         return
     end
     local policy_str = util.base64_dec(strategy_base64_str)
@@ -141,11 +137,9 @@ local function policy_update_from_remote(strategy_base64_str)
         policy_switch(policy_obj)
         util.pure_log(string.format("[----- successful update policy, current version [%s]] cost: [%s]", policy.CONFIG_VERSION, (ngx.now() - record_start_time)))
     else
-    util.pure_log(string.format("[----- [ update policy err ] -----"))
+        util.pure_log(string.format("[----- [ update policy err ] -----"))
     end
 end
-
-
 
 local function send_heart_beat()
     local heart_beat_body = {}
@@ -154,7 +148,7 @@ local function send_heart_beat()
     heart_beat_body.clientIp = util.get_local_ip()
     heart_beat_body.clientHostName = util.get_local_host_name()
     heart_beat_body.configVersion = policy.CONFIG_VERSION
-    heart_beat_body.wafEnable  = policy.ENABLE
+    heart_beat_body.wafEnable = policy.ENABLE
     local heart_beat_body_str = cjson.encode(heart_beat_body)
     local resp_body = util.http_post(heart_beat_body_str, config.config_heart_beat_upload_uri)
     if resp_body ~= nil and config.rules_load_mode == "remote" then
@@ -176,7 +170,6 @@ local function send_heart_beat_job(premature)
     util.pure_log("send_heart_beat_job cost time:" .. (ngx.now() - record_start_time))
 end
 
-
 local function init_jobs()
 
     local record_start_time = ngx.now()
@@ -184,13 +177,13 @@ local function init_jobs()
     if config.rules_load_mode == "local" then
         init_rules_by_local()
     end
-
-    send_heart_beat_job()
-
-    local ok, err = ngx.timer.every(10, send_heart_beat_job)
-    if not ok then
-       util.pure_log("failed to create the send heartbeat job timer ".. err)
+    if config.heart_beat_enable == "on" then
+        local ok, err = ngx.timer.every(10, send_heart_beat_job)
+        if not ok then
+            util.pure_log("failed to create the send heartbeat job timer " .. err)
+        end
     end
+
     util.pure_log("init_jobs cost time:" .. (ngx.now() - record_start_time))
 end
 

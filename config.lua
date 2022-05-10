@@ -1,4 +1,3 @@
-
 local _M = {
     -- 防火墙开关
     waf_enable = "on",
@@ -20,6 +19,8 @@ local _M = {
     attack_upload_uri = "/api/public/attack-record",
     -- 上报响应信息后端API
     resp_upload_uri = "/api/public/response-record",
+    -- 是否开启心跳
+    heart_beat_enable = "off",
     -- 心跳间隔 单位: 秒
     heart_beat_interval_second = 15,
     -- 上报心跳息后端API
@@ -32,7 +33,7 @@ local _M = {
     rules_load_mode = "local",
 
     -- 频率控制开关
-    frequency_control_check = "on",
+    frequency_control_check = "off",
     -- 频率控制模式,watch/deny
     frequency_mode = "deny",
 
@@ -51,7 +52,7 @@ local _M = {
     attack_check = "on",
     head_check = "on",
     user_agent_check = "on",
-    url_check = "on",
+    uri_check = "on",
     param_check = "on",
     body_check = "on",
 
@@ -62,7 +63,7 @@ local _M = {
     waf_redirect_url = "https://www.esign.cn/",
 
     -- 拦截页面
-    config_output_html = [[
+    block_output_html = [[
         <html>
          <head>
           <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />

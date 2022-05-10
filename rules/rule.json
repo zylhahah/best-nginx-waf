@@ -25,5 +25,14 @@
     "rule_class": "XSS-Injection",
     "rule_range": "HEADER;",
     "rule_regex": "<script>alert"
+  },
+  {
+    "rule_id": "R-003",
+    "rule_name": "XSS-Reflection-Xss-2",
+    "action": "RECORD",
+    "father_rule": "R-001",
+    "rule_class": "XSS-Injection",
+    "rule_range": "HEADER;",
+    "rule_regex": "<script>document"
   }
 ]
