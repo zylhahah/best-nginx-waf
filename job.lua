@@ -7,16 +7,11 @@ local logger = require("logger")
 local rule_util = require("rule_util")
 
 local function init_health_check()
+    logger.log("init health check job ....")
     local hc = require "resty.upstream.healthcheck"
-    if config.config_health_check ~= "on" then
-        return
-    end
-
-    logger.log("init health check job.... ")
-
-    local health_check_config_objs = cjson.decode(health_check_config)
-
-    for _, health_check_config_obj in pairs(health_check_config_objs) do
+    local health_check_config = rule_util.read_rule('health_check_config')
+    local health_check_config_obj_array = cjson.decode(health_check_config)
+    for _, health_check_config_obj in pairs(health_check_config_obj_array) do
         logger.log("====== set spawn_checker for " .. health_check_config_obj.upstream)
         local ok, err = hc.spawn_checker {
             shm = "healthcheck", -- defined by "lua_shared_dict"
@@ -182,6 +177,11 @@ local function init_jobs()
             logger.log("failed to create the send heartbeat job timer " .. err)
         end
     end
+
+    if config.health_check_enable ~= "on" then
+        init_health_check()
+    end
+
     logger.log("init_jobs cost time:" .. (ngx.now() - record_start_time))
 end
 
