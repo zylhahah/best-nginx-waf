@@ -3,6 +3,7 @@ local config = require("config")
 local policy = require("policy")
 local cjson = require("cjson.safe")
 local util = require("util")
+local logger = require("logger")
 local rule_util = require("rule_util")
 
 local function init_health_check()
@@ -11,12 +12,12 @@ local function init_health_check()
         return
     end
 
-    util.pure_log("init health check job.... ")
+    logger.log("init health check job.... ")
 
     local health_check_config_objs = cjson.decode(health_check_config)
 
     for _, health_check_config_obj in pairs(health_check_config_objs) do
-        util.pure_log("====== set spawn_checker for " .. health_check_config_obj.upstream)
+        logger.log("====== set spawn_checker for " .. health_check_config_obj.upstream)
         local ok, err = hc.spawn_checker {
             shm = "healthcheck", -- defined by "lua_shared_dict"
             upstream = health_check_config_obj.upstream, -- defined by "upstream"
@@ -31,7 +32,7 @@ local function init_health_check()
             concurrency = 10, -- concurrency level for test requests
         }
         if not ok then
-            util.pure_log("failed to create the health check timer" .. err)
+            logger.log("failed to create the health check timer" .. err)
             return
         end
     end
@@ -123,21 +124,19 @@ local function init_rules_by_local()
     refresh_policy(new_policy)
 end
 
-local function policy_update_from_remote(strategy_base64_str)
+local function policy_update_from_remote(policy_base64_str)
     local record_start_time = ngx.now()
-    util.pure_log(string.format("[----- current redis waf config version [%s], and start update policy]", redis_waf_config_version))
-    if strategy_base64_str == nil then
-        util.pure_log(string.format("[----- [ redis get nil by key " .. strategy_key .. " ] -----"))
+    if policy_base64_str == nil then
         return
     end
-    local policy_str = util.base64_dec(strategy_base64_str)
+    local policy_str = util.base64_dec(policy_base64_str)
     local policy_obj = cjson.decode(policy_str)
-    util.pure_log(policyStr)
+    logger.log(policy_str)
     if policy_obj ~= nil and policy_obj.CONFIG_VERSION > 0 then
-        policy_switch(policy_obj)
-        util.pure_log(string.format("[----- successful update policy, current version [%s]] cost: [%s]", policy.CONFIG_VERSION, (ngx.now() - record_start_time)))
+        refresh_policy(policy_obj)
+        logger.log(string.format("[----- successful update policy, current version [%s]] cost: [%s]", policy.CONFIG_VERSION, (ngx.now() - record_start_time)))
     else
-        util.pure_log(string.format("[----- [ update policy err ] -----"))
+        logger.log(string.format("[----- [ update policy err ] -----"))
     end
 end
 
@@ -163,11 +162,11 @@ local function send_heart_beat_job(premature)
     end
     local ok, err = ngx.timer.at(0, send_heart_beat)
     if not ok then
-        util.pure_log("failed to create the send_heart_beat timer")
-        util.pure_log(err)
+        logger.log("failed to create the send_heart_beat timer")
+        logger.log(err)
         return
     end
-    util.pure_log("send_heart_beat_job cost time:" .. (ngx.now() - record_start_time))
+    logger.log("send_heart_beat_job cost time:" .. (ngx.now() - record_start_time))
 end
 
 local function init_jobs()
@@ -180,11 +179,10 @@ local function init_jobs()
     if config.heart_beat_enable == "on" then
         local ok, err = ngx.timer.every(10, send_heart_beat_job)
         if not ok then
-            util.pure_log("failed to create the send heartbeat job timer " .. err)
+            logger.log("failed to create the send heartbeat job timer " .. err)
         end
     end
-
-    util.pure_log("init_jobs cost time:" .. (ngx.now() - record_start_time))
+    logger.log("init_jobs cost time:" .. (ngx.now() - record_start_time))
 end
 
 init_jobs()

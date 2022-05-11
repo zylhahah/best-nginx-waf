@@ -6,6 +6,7 @@ local util = require("util")
 local cjson = require("cjson.safe")
 local cache = require("lru_cache")
 local string = require("string")
+local logger = require("logger")
 local function table_len(t)
     if t == nil then
         return 0
@@ -37,27 +38,24 @@ end
 -- 判断正则表达式
 local function rule_regex_match(data, rules, stage)
     local matchedRuleTable = {}
-    util.log(string.format("================== In rule_regex_match rules size[%s] ===================", #rules))
     for _, rule in pairs(rules) do
-        util.log(rule)
-        util.log(rule.rule_regex)
         if rule ~= nil and rule.rule_regex ~= nil then
-            util.log(string.format("====Try Rule [%s]", rule.rule_id))
+
+            logger.request_log(string.format("====Try Rule [%s]", rule.rule_id))
             local m = rule_match(data, rule.rule_regex, 'jio')
             if m then
-                util.log(string.format("================== Matched Rule: [%s] Action: [%s] ===================", rule.rule_id, rule.action))
+                logger.request_log(string.format("================== Matched Rule: [%s] Action: [%s] ===================", rule.rule_id, rule.action))
                 --如果匹配到敏感信息
                 if rule.action == "DENY" or rule.action == "RECORD" then
-                    util.log(string.format("================== Waf Record Triggered By Rule [%s] ===================", rule.rule_id))
+                    logger.request_log(string.format("================== Waf Record Triggered By Rule [%s] ===================", rule.rule_id))
                     util.record_attack(config.log_dir, rule.rule_id, rule.rule_regex, rule.action, rule.class, ngx.var.request_uri, data, m[0], stage)
                 end
                 if rule.action == "DENY" then
-                    util.log(string.format("================== Waf Block Triggered By Rule [%s] ===================", rule.rule_id))
+                    logger.request_log(string.format("================== Waf Block Triggered By Rule [%s] ===================", rule.rule_id))
                     util.block_attack()
                     return nil
                 end
                 table.insert(matchedRuleTable, rule)
-                util.log(string.format("================== matchedRuleTable size [%s] ===================", #matchedRuleTable))
             end
         end
         return matchedRuleTable
@@ -75,9 +73,10 @@ local function son_rules_check(data_for_check, FATHER_RULES, stage, limit)
             for _, son_rule in pairs(son_rules) do
                 table.insert(all_son_rules, son_rule)
             end
+        else
+            return true  -- 有子规则匹配上 但无后续子规则 则此阶段匹配结束 且匹配到规则
         end
     end
-    util.log(string.format("================== all_son_rules size [%s] ===================", #all_son_rules))
     if table_len(all_son_rules) > 0 and data_for_check ~= nil and limit > 0 then
         local matchedRuleTable = rule_regex_match(unescape(data_for_check), all_son_rules, stage)
         if table_len(matchedRuleTable) > 0 and matchedRuleTable ~= nil then
@@ -88,11 +87,9 @@ local function son_rules_check(data_for_check, FATHER_RULES, stage, limit)
 end
 
 local function data_check(data_for_check, ROOT_RULES, stage)
-    util.log(string.format("================== Start Data Check, Rule Size [%s] On Stage [%s] ===================", #ROOT_RULES, stage))
     local ROOT_RULE_MATCHED_TABLE
     if data_for_check ~= nil and ROOT_RULES ~= nil and table_len(ROOT_RULES) > 0 then
         ROOT_RULE_MATCHED_TABLE = rule_regex_match(unescape(data_for_check), ROOT_RULES, stage)
-        util.log(string.format("================== ROOT_RULE_MATCHED_TABLE SIZE [%s] ===================", #ROOT_RULE_MATCHED_TABLE))
     end
 
     local limit = 5
@@ -126,8 +123,6 @@ local function head_attack_check()
 end
 
 local function user_agent_attack_check()
-    util.log(string.format("================== #policy.ROOT_USER_AGENT_RULES [%s] ===================", #policy.ROOT_USER_AGENT_RULES))
-    util.log(policy.ROOT_USER_AGENT_RULES)
     if config.user_agent_check == "on" and policy.ROOT_USER_AGENT_RULES ~= nil and #policy.ROOT_USER_AGENT_RULES > 0 then
         local USER_AGENT = ngx.var.http_user_agent
         if USER_AGENT ~= nil then
@@ -235,7 +230,7 @@ local function black_ip_check()
         --代理后，无法直接拿到源IP
         local client_ip = util.get_client_ip()
         if client_ip == "0.0.0.0" then
-            util.pure_log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
+            logger.log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
         for _, black_ip in pairs(policy.IP_BLACK_LIST) do
@@ -252,7 +247,7 @@ local function white_ip_check()
     if config.white_ip_check == "on" and policy.IP_WHITE_LIST ~= nil and #policy.IP_WHITE_LIST > 0 then
         local client_ip = util.get_client_ip()
         if client_ip == "0.0.0.0" then
-            util.pure_log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
+            logger.log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
         for _, white_ip in pairs(policy.IP_WHITE_LIST) do
@@ -300,7 +295,7 @@ local function frequency_control_check()
         --代理后，无法直接拿到源IP
         local remote_addr = util.get_client_ip()
         if remote_addr == "0.0.0.0" then
-            util.pure_log(string.format("remote_addr is nil, req uri: %s", ngx.var.request_uri))
+            logger.log(string.format("remote_addr is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
         if policy.FREQUENCY_IP_BLACK_LIST ~= nil and table_len(policy.FREQUENCY_IP_BLACK_LIST) > 0 then
@@ -321,14 +316,14 @@ local function frequency_control_check()
             return false
         end
         if findCount >= policy.SECOND_MAX_VISITS then
-            util.log(string.format("COMPARE IP findCount [%s] AND MAX_VISITS [%s]============", findCount, policy.SECOND_MAX_VISITS))
+            logger.request_log(string.format("COMPARE IP findCount [%s] AND MAX_VISITS [%s]============", findCount, policy.SECOND_MAX_VISITS))
         end
         if findCount >= policy.SECOND_MAX_VISITS then
             -- 超过最大频次 TODO 需要根据换算 得出
             -- 加入 ip 黑名单
             local ip_block_time = ngx.now + policy.IP_BLOCK_TIME
             policy.FREQUENCY_IP_BLACK_LIST[remote_addr] = ip_block_time
-            util.log(string.format("CREATE NOW FREQUENCY IP BLOCK IP [%s] AND EXPIRE AT [%s]============ FREQUENCY_IP_BLACK_LIST SIZE:[%d]  ", remote_addr, ip_block_time, #policy.FREQUENCY_IP_BLACK_LIST))
+            logger.request_log(string.format("CREATE NOW FREQUENCY IP BLOCK IP [%s] AND EXPIRE AT [%s]============ FREQUENCY_IP_BLACK_LIST SIZE:[%d]  ", remote_addr, ip_block_time, #policy.FREQUENCY_IP_BLACK_LIST))
             return true
         end
     end
@@ -337,10 +332,9 @@ end
 
 local function cc_attack_check()
     if config.cc_check == "on" then
-        -- 对ngx.var.request_uri限制长度为最大40字符 避免key太长
         local remote_addr = util.get_client_ip()
         if remote_addr == "0.0.0.0" then
-            util.pure_log(string.format("remote_addr is nil, req uri: %s", ngx.var.request_uri))
+            logger.log(string.format("remote_addr is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
         local ATTACK_URI = string.sub(ngx.var.request_uri, 1, 40)
@@ -349,7 +343,7 @@ local function cc_attack_check()
         local CCcount = tonumber(string.match(config.cc_rate, '(.*)/'))
         local CCseconds = tonumber(string.match(config.cc_rate, '/(.*)'))
         local req, _ = limit:get(CC_TOKEN)
-        -- 打印目标限制字符串
+
         if req then
             if req > CCcount then
                 util.record_attack(config.log_dir, 'CC攻击' .. config.cc_rate .. "/时间(" .. config.cc_rate .. "秒)", "", "", "CC攻击", ngx.var.request_uri, remote_addr, "", "CC攻击")
@@ -377,14 +371,13 @@ local function attack_check()
         elseif param_attack_check() then
         elseif body_attack_check() then
         else
-            return
+            return false
         end
     end
     return false
 end
 
 local function access_check()
-    util.log(string.format(" ---------  waf req in ------------- "))
     if config.waf_enable ~= "on" or policy.ENABLE ~= "Enable" then
         return
     end

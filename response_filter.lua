@@ -9,7 +9,7 @@ local util = require("util")
 local function response_log()
     local waf_token = ngx.ctx.waf_token
     if waf_token ~= nil then
-        util.log_response(waf_token)
+        util.record_response(waf_token)
     end
 end
 

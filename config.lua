@@ -8,11 +8,11 @@ local _M = {
     -- WAF 本身日志级别
     log_enable = "on",
     -- 日志文件存放目录 结尾不带/
-    log_dir = "/var/log/nginx",
+    log_dir = "/var/log/best-nginx-waf",
     -- 规则文件存放目录 结尾不带/
     policy_dir = "/usr/local/openresty/nginx-waf/rules",
     -- 上报攻击信息开关
-    attack_upload_enable = "on",
+    attack_upload_enable = "off",
     -- 上报攻击信息后端HOST
     server_addr = "http://nginxwafng.testk8s.tsign.cn",
     -- 上报攻击信息后端API

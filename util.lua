@@ -2,7 +2,10 @@ local io = require("io")
 local cjson = require("cjson.safe")
 local string = require("string")
 local config = require("config")
+local logger = require("logger")
 local socket = require("socket.core")
+local local_ip = nil
+local local_host_name = nil
 
 local _M = {
     version = "0.14",
@@ -28,53 +31,21 @@ function _M.print_table(t)
     return str
 end
 
-
--- 记录JSON格式日志
-function _M.log(msg)
-    if config.log_enable ~= "on" then
-        return
-    end
-    local line_num = debug.getinfo(2).currentline
-    local method_name = debug.getinfo(2).name
-    local log_line = string.format("[%s]-%s()%s #:: %s; %s, %s:%s; ", ngx.localtime(), method_name, line_num, msg, _M.get_client_ip(), ngx.req.get_method(), ngx.var.uri)
-    local log_name = string.format("%s/%s_waf.log", config.log_dir, ngx.today())
-    local file, err = io.open(log_name, "a+")
-    if err ~= nil or file == nil then
-        ngx.log(ngx.ERR, "open nginx-waf log file err:" .. err)
-        return
-    end
-    file:write(string.format("%s\n", string.gsub(string.gsub(log_line, "\\\"", ""), "\\", "")))
-    file:flush()
-    file:close()
-end
-
-
--- 记录JSON格式日志
-function _M.pure_log(msg)
-    if config.log_enable ~= "on" then
-        return
-    end
-    local line_num = debug.getinfo(2).currentline
-    local method_name = debug.getinfo(2).name
-    local log_line = string.format("[%s]-%s()%s #:: %s;", ngx.localtime(), method_name, line_num, msg)
-    local log_name = string.format("%s/%s_waf.log", config.log_dir, ngx.today())
-    local file, err = io.open(log_name, "a+")
-    if err ~= nil or file == nil then
-        ngx.log(ngx.ERR, "open nginx-waf log file (" .. log_name .. ") err:" .. err)
-        return
-    end
-    file:write(string.format("%s\n", string.gsub(string.gsub(log_line, "\\\"", ""), "\\", "")))
-    file:flush()
-    file:close()
-end
-
 function _M.get_local_ip()
-    local MyHostName = socket.dns.gethostname() --本机名
-    return socket.dns.toip(MyHostName) --本机IP
+    if local_ip == nil then
+        local host_name = _M.get_local_host_name() --本机名
+        if host_name ~= nil and host_name ~= "" then
+            local_ip = socket.dns.toip(host_name) --本机IP
+        end
+    end
+    return local_ip
 end
 
 function _M.get_local_host_name()
-    return socket.dns.gethostname() --本机名
+    if local_host_name == nil then
+        local_host_name = socket.dns.gethostname() --本机名
+    end
+    return local_host_name
 end
 
 -- 获取来访IP
@@ -100,7 +71,6 @@ function _M.get_client_ip()
     return CLIENT_IP
 end
 
--- 获取UserAgnet
 function _M.get_user_agent()
     local USER_AGENT = ngx.var.http_user_agent
     if USER_AGENT == nil then
@@ -110,11 +80,7 @@ function _M.get_user_agent()
 end
 
 function _M.send_ding_talk(msg)
-    _M.pure_log("----------------send_ding_ding_msg ------------------")
-    _M.pure_log("msg: " .. msg)
-
     if config.ding_ding == "off" then
-        _M.pure_log("config is off for send_ding_ding_msg")
         return
     end
     local http = require("resty.http")
@@ -143,16 +109,16 @@ function _M.send_ding_talk(msg)
     })
     client:close()
     if err ~= nil then
-        _M.pure_log(err)
+        logger.log(err)
     end
     if res ~= nil then
-        _M.pure_log("send_ding_talk status: " .. res.status .. " body: " .. res.body)
+        logger.log("send ding ding msg status: " .. res.status .. " body: " .. res.body)
     end
 end
 
 
 -- 异步执行http 发送数据 失败需要停止发送
-function _M.http_post(attackRecord, url)
+function _M.http_post(req_body, url)
     local record_start_time = ngx.now()
     local http = require("resty.http")
     local client = http:new()
@@ -163,10 +129,10 @@ function _M.http_post(attackRecord, url)
         headers = {
             ["Content-Type"] = "application/json",
         },
-        body = attackRecord
+        body = req_body
     })
     if err ~= nil then
-        _M.pure_log(err)
+        logger.log(err)
         if config.ding_ding == "on" then
             local msg = string.format("upload attack log err: [%s]\n", err)
             _M.send_ding_talk(msg)
@@ -174,7 +140,7 @@ function _M.http_post(attackRecord, url)
         end
     end
     if res ~= nil then
-        _M.pure_log("http post host[" .. config.server_addr .. "] [" .. url .. "] status: " .. res.status .. " body: " .. res.body .. " cost: " .. (ngx.now() - record_start_time))
+        logger.log("http post host[" .. config.server_addr .. "] [" .. url .. "] status: " .. res.status .. " body: " .. res.body .. " cost: " .. (ngx.now() - record_start_time))
         return res.body
     end
 end
@@ -186,84 +152,61 @@ function _M.unsafe_http_post(premature, body, uri)
     _M.http_post(body, uri)
 end
 
-function _M.log_response(waf_token)
-    ngx.update_time()
+function _M.record_response(waf_token)
     if waf_token == nil then
         return
     end
-    _M.pure_log("starting record response body by waf-token: " .. waf_token)
     local record_start_time = ngx.now()
-    local user_agent = _M.get_user_agent()
-    local server_name = ngx.var.server_name
-    local RESP_BODY
+    local resp_body
     if "POST" == ngx.req.get_method() then
-        RESP_BODY = string.sub(ngx.arg[1], 1, 1000)
-        local buffered = (ngx.ctx.buffered or "") .. RESP_BODY
+        resp_body = string.sub(ngx.arg[1], 1, 1000)
+        local buffered = (ngx.ctx.buffered or "") .. resp_body
         if ngx.arg[2] then
-            RESP_BODY = buffered
+            resp_body = buffered
         end
     end
 
-    if RESP_BODY == nil or RESP_BODY == "" then
-        RESP_BODY = ""
+    if resp_body == nil or resp_body == "" then
+        resp_body = ""
     end
-    _M.pure_log("log_response status: " .. ngx.status .. " body: " .. RESP_BODY)
     local response_obj = {
         attackIp = _M.get_client_ip(),
         attackTime = string.sub(ngx.localtime(), 1, 10) .. "T" .. string.sub(ngx.localtime(), 12, -1) .. "+08:00",
         reqMethod = ngx.req.get_method(),
         reqUri = ngx.var.uri,
-        respBody = RESP_BODY,
+        respBody = resp_body,
         respStatus = ngx.status,
         respHeaders = _M.print_table(ngx.resp.get_headers(0, true)),
         recordType = "RESP",
         wafToken = waf_token
     }
-
-    local line_num = debug.getinfo(2).currentline
-    local method_name = debug.getinfo(2).name
     local response_obj_raw = cjson.encode(response_obj)
-    local log_line = string.format("[%s]-%s()%s #:: %s; %s, %s:%s; ", ngx.localtime(), method_name, line_num, response_obj_raw, _M.get_client_ip(), ngx.req.get_method(), ngx.var.uri)
-    local log_name = string.format("%s/%s_waf.log", config.log_dir, ngx.today())
-    local file, err = io.open(log_name, "a+")
-    if err ~= nil or file == nil then
-        _M.pure_log("file (" .. log_name .. ") open err:" .. err)
-        return
-    end
-    file:write(string.format("%s\n", string.gsub(string.gsub(log_line, "\\\"", ""), "\\", "")))
-    file:flush()
-    file:close()
-    _M.pure_log(log_line)
-    if config.attack_upload == "on" then
+    logger.log_upload(response_obj_raw)
+    if config.attack_upload_enable == "on" then
         local ok, err = ngx.timer.at(0, _M.unsafe_http_post, response_obj_raw, config.resp_upload_uri)
         if not ok then
-            util.pure_log("failed to unsafe_http_post response")
-            util.pure_log(err)
+            logger.log("failed to unsafe_http_post response")
+            logger.log(err)
             return
         end
     end
-    _M.pure_log("response record post cost time:" .. (ngx.now() - record_start_time))
 end
 
-function _M.record_attack(config_log_dir, policy, pattern, action, attack_type, url, data, match, stage)
-    ngx.update_time()
+function _M.record_attack(config_log_dir, rule, regex, action, attack_type, url, data, matchData, stage)
+    local record_start_time = ngx.now()
     local resp_status = ngx.HTTP_FORBIDDEN
     if action == "RECORD" then
         local uuid = require("uuid")
         ngx.ctx.waf_token = uuid.generate()
-        _M.log("record policy: " .. policy .. " waf-token: " .. ngx.ctx.waf_token)
         resp_status = 200
     end
-    local record_start_time = ngx.now()
-    local log_path = config_log_dir
-    local user_agent = _M.get_user_agent()
-    local server_name = ngx.var.server_name
-    local POST_ARGS
+
+    local req_body
     if "POST" == ngx.req.get_method() then
         ngx.req.read_body()
-        POST_ARGS = ngx.req.get_body_data()
-        if POST_ARGS == nil then
-            POST_ARGS = ngx.req.get_body_file()
+        req_body = ngx.req.get_body_data()
+        if req_body == nil then
+            req_body = ngx.req.get_body_file()
         end
     end
 
@@ -271,15 +214,15 @@ function _M.record_attack(config_log_dir, policy, pattern, action, attack_type, 
         attackIp = _M.get_client_ip(),
         attackTime = string.sub(ngx.localtime(), 1, 10) .. "T" .. string.sub(ngx.localtime(), 12, -1) .. "+08:00",
         attackPayload = data,
-        matchedPolicy = policy,
+        matchedRule = rule,
         matchedStage = stage,
-        matchedPattern = pattern,
-        matchData = match,
+        matchedRegex = regex,
+        matchData = matchData,
         reqArgs = cjson.encode(ngx.req.get_uri_args()),
         reqMethod = ngx.req.get_method(),
         reqUri = ngx.var.uri,
         reqHost = ngx.var.host,
-        reqBody = POST_ARGS,
+        reqBody = req_body,
         reqHeaders = _M.print_table(ngx.req.get_headers(0, true)),
         recordType = attack_type,
         respStatus = resp_status,
@@ -287,29 +230,17 @@ function _M.record_attack(config_log_dir, policy, pattern, action, attack_type, 
         sourceIp = _M.get_local_ip(),
         wafToken = ngx.ctx.waf_token
     }
-
     local attack_report_raw = cjson.encode(attack_report_obj)
-    local log_name = string.format("%s/%s_attack.log", log_path, ngx.today())
-    local file, err = io.open(log_name, "a+")
-    if err ~= nil or file == nil then
-        _M.log("file (" .. log_name .. ") open err:" .. err)
-        return
-    end
-    file:write(string.format("%s\n", string.gsub(string.gsub(attack_report_raw, "\\\"", ""), "\\", "")))
-    file:flush()
-    file:close()
-    _M.log(attack_report_raw)
-    if config.attack_upload == "on" then
+    logger.log_upload(attack_report_raw)
+    if config.attack_upload_enable == "on" then
         _M.http_post(attack_report_raw, config.attack_upload_uri)
     end
-    _M.log("attack record post cost time:" .. (ngx.now() - record_start_time))
 end
 
 
 -- 恶意访问处理函数
 -- 使用观察模式模式时，仅记录ip到共享存储
 function _M.block_attack()
-
     if config.attack_block_enable == "off" then
         return
     end
