@@ -10,7 +10,7 @@ local _M = {
     -- 日志文件存放目录 结尾不带/
     log_dir = "/var/log/best-nginx-waf",
     -- 规则文件存放目录 结尾不带/
-    policy_dir = "/usr/local/openresty/nginx-waf/rules",
+    policy_dir = "/usr/local/openresty/best-nginx-waf/rules",
     -- 上报攻击信息开关
     attack_upload_enable = "off",
     -- 上报攻击信息后端HOST
