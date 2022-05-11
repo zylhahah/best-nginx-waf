@@ -88,7 +88,7 @@ function _M.send_ding_talk(msg)
     local ding = {}
     local ctext = {}
     ding.msgtype = "text"
-    ctext.content = string.format("nginx-waf[%s]: \n \n %s", MyIP, msg)
+    ctext.content = string.format("best-nginx-waf[%s]: \n \n %s", _M.get_local_ip(), msg)
     ding.text = ctext
     local dat = cjson.encode(ding)
     local t = {}
