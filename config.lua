@@ -14,7 +14,7 @@ local _M = {
     -- 上报攻击信息开关
     attack_upload_enable = "off",
     -- 上报攻击信息后端HOST
-    server_addr = "http://nginxwafng.testk8s.tsign.cn",
+    server_addr = "http://localhost:8080",
     -- 上报攻击信息后端API
     attack_upload_uri = "/api/public/attack-record",
     -- 上报响应信息后端API
