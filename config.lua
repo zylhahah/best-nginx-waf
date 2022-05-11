@@ -60,7 +60,7 @@ local _M = {
     -- 处理方式 redirect(重定向)/watch(模式只记录日志)
     waf_model = "deny",
     -- 当配置为redirect时跳转到的URL
-    waf_redirect_url = "https://www.esign.cn/",
+    waf_redirect_url = "https://www.abc.com/",
 
     -- 拦截页面
     block_output_html = [[
@@ -74,7 +74,6 @@ local _M = {
           <div style="margin: 0 auto; width: 100vh; padding-top: 100px; overflow: hidden">
            <div style="width: 600px;margin: 0 auto;">
             <div style="            height: 40px;            line-height: 40px;            color: #fff;            font-size: 16px;            overflow: hidden;            background: #e50012;            padding-left: 20px;          ">
-             <img src="https://www.esign.cn/images/whitelogo.png" width="110px" height="30px" style="margin-top: 5px;" />
             </div>
             <div style="            border: 1px dashed #cdcece;            border-top: none;            font-size: 14px;            background: #fff;            color: #555;            line-height: 24px;            height: 220px;            padding: 20px 20px 0 20px;            overflow-y: auto;            background: #f3f7f9;          ">
              <p style="              margin-top: 0px;              margin-bottom: 0px;              margin-left: 0px;              margin-right: 0px;              -qt-block-indent: 0;              text-indent: 0px;            "><span style="font-weight: 600; color: #fc4f03">您的请求不符合WAF规则，已被网站管理员设置拦截！</span></p>
@@ -83,7 +82,7 @@ local _M = {
              <ul style="              margin-top: 0px;              margin-bottom: 0px;              margin-left: 0px;              margin-right: 0px;              -qt-list-indent: 1;            ">
               <li style="                margin-top: 12px;                margin-bottom: 0px;                margin-left: 0px;                margin-right: 0px;                -qt-block-indent: 0;                text-indent: 0px;              "> 1）检查提交内容；</li>
               <li style="                margin-top: 0px;                margin-bottom: 0px;                margin-left: 0px;                margin-right: 0px;                -qt-block-indent: 0;                text-indent: 0px;              "> 2）如网站托管，请联系空间提供商；</li>
-              <li style="                margin-top: 0px;                margin-bottom: 0px;                margin-left: 0px;                margin-right: 0px;                -qt-block-indent: 0;                text-indent: 0px;              "> 3）普通网站访客，请联系网站管理员huanyu@tsign.cn；</li>
+              <li style="                margin-top: 0px;                margin-bottom: 0px;                margin-left: 0px;                margin-right: 0px;                -qt-block-indent: 0;                text-indent: 0px;              "> 3）普通网站访客，请联系网站管理员</li>
              </ul>
             </div>
            </div>
