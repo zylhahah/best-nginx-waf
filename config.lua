@@ -5,9 +5,9 @@ local _M = {
     attack_block_enable = "on",
     -- 健康检查开关
     health_check_enable = "off",
-    -- WAF 本身日志级别
+    -- WAF 日志开关
     log_enable = "on",
-    -- 日志文件存放目录 结尾不带/
+    -- 日志文件存放目录
     log_dir = "/var/log/best-nginx-waf",
     -- 规则文件存放目录 结尾不带/
     policy_dir = "/usr/local/openresty/best-nginx-waf/rules",
@@ -25,29 +25,24 @@ local _M = {
     heart_beat_interval_second = 15,
     -- 上报心跳息后端API
     heart_beat_upload_uri = "/api/public/client/heartbeat",
-    -- 钉钉告警群Token配置
-    ding_ding_enable = "on",
-    -- 钉钉告警群Token配置
-    ding_ding_token = "/robot/send?access_token=e335459260ff1f712da8d49cc12540266b64112823c80984332544f007289bf4",
-    -- 规则加载配置 local: 本地rules文件夹  remote: 从server心跳返回拉取
+    -- 钉钉告警开关
+    ding_ding_enable = "off",
+    -- 钉钉告警群Token配置 按自己实际配置修改
+    ding_ding_token = "/robot/send?access_token=ebf4xxx",
+    -- 规则加载配置 local: 本地rules文件夹  remote: 从server心跳返回拉取 心跳返回数据应为base64编码；具体数据格式参考policy.json实例
     rules_load_mode = "local",
-
     -- 频率控制开关
     frequency_control_check = "off",
-    -- 频率控制模式,watch/deny
+    -- 频率控制模式 watch/deny
     frequency_mode = "deny",
-
     -- IP白名单开关
     white_ip_check = "on",
     -- IP黑名单开关
     black_ip_check = "on",
-
     -- URL白名单开关
     white_url_check = "on",
     black_url_check = "on",
-
     cc_check = "off",
-
     -- 攻击检测开关
     attack_check = "on",
     head_check = "on",
@@ -56,8 +51,7 @@ local _M = {
     param_check = "on",
     body_check = "on",
 
-
-    -- 处理方式 redirect(重定向)/watch(模式只记录日志)
+    -- 处理方式 redirect(重定向)/deny(拦截)
     waf_model = "deny",
     -- 当配置为redirect时跳转到的URL
     waf_redirect_url = "https://www.abc.com/",

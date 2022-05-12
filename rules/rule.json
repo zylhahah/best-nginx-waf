@@ -1,38 +1,201 @@
 [
   {
-    "rule_id": "R-000",
-    "rule_name": "Crawler-Deny",
-    "action": "DENY",
-    "father_rule": "",
-    "rule_class": "Crawler",
-    "rule_range": "USER_AGENT;",
-    "rule_regex": "crawler"
-  },
-  {
-    "rule_id": "R-001",
-    "rule_name": "XSS-Reflection-Xss",
+    "rule_id": "PT-001",
+    "rule_name": "Path-Traversal-Base",
     "action": "CHAIN",
     "father_rule": "",
-    "rule_class": "XSS-Injection",
-    "rule_range": "BODY;HEADER;",
-    "rule_regex": "<script>"
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;BODY;PARAM;",
+    "rule_regex": "\\.\\./\\.\\./|\\.(svn|bash_history|htaccess)|system32|etc[/]+passwd|:\\\\"
   },
   {
-    "rule_id": "R-002",
-    "rule_name": "XSS-Reflection-Xss-1",
-    "action": "RECORD",
-    "father_rule": "R-001",
-    "rule_class": "XSS-Injection",
-    "rule_range": "HEADER;",
-    "rule_regex": "<script>alert"
+    "rule_id": "PT-0011",
+    "rule_name": "Path-Traversal-Passwd",
+    "action": "DENY",
+    "father_rule": "PT-001",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;BODY;PARAM;",
+    "rule_regex": "(?:etc\\/\\W*passwd)"
   },
   {
-    "rule_id": "R-003",
-    "rule_name": "XSS-Reflection-Xss-2",
+    "rule_id": "PT-002",
+    "rule_name": "Path-Traversal-On-Uri-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "\\.(svn|htaccess|bash_history)"
+  },
+  {
+    "rule_id": "PT-003",
+    "rule_name": "Path-Traversal-On-Uri-2",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "\\.(bak|inc|old|mdb|sql|backup|java|class)$"
+  },
+  {
+    "rule_id": "PT-004",
+    "rule_name": "Path-Traversal-On-Uri-3",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "(vhost|bbs|host|wwwroot|www|site|root|hytop|flashfxp).*\\.rar"
+  },
+  {
+    "rule_id": "PT-005",
+    "rule_name": "Path-Traversal-On-Uri-4",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "(phpmyadmin|jmx-console|jmxinvokerservlet)"
+  },
+  {
+    "rule_id": "PT-006",
+    "rule_name": "Path-Traversal-On-Uri-5",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "java\\.lang"
+  },
+  {
+    "rule_id": "PT-007",
+    "rule_name": "Path-Traversal-On-Uri-6",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Path-Traversal",
+    "rule_range": "URI;",
+    "rule_regex": "/(attachments|upimg|images|css|uploadfiles|html|uploads|templets|static|template|data|inc|forumdata|upload|includes|cache|avatar)/(\\\\w+).(php|jsp)"
+  },
+  {
+    "rule_id": "FV-001",
+    "rule_name": "Framework-Vulnerability-JNDI",
+    "action": "CHAIN",
+    "father_rule": "",
+    "rule_class": "Framework-Vulnerability",
+    "rule_range": "URI;BODY;PARAM;HEADER;USER_AGENT;",
+    "rule_regex": "\\$\\{"
+  },
+  {
+    "rule_id": "FV-0011",
+    "rule_name": "Framework-Vulnerability-Log4j-1",
+    "action": "DENY",
+    "father_rule": "FV-001",
+    "rule_class": "Framework-Vulnerability",
+    "rule_range": "URI;BODY;PARAM;HEADER;USER_AGENT;",
+    "rule_regex": "\\$\\{\\S*((\\$\\{\\w*?:\\S*?\\}.*?){1,}|jndi:(ldap|ldaps|rmi|iiop|iiopname|corbaname|dns|nis))(\\$\\{\\w*?:\\S*?\\}.*?){0,}(\\$\\{.*?:-:\\}|:)(\\$\\{\\w*?:\\S*?\\}.*?){0,}(\\$\\{.*?:-/\\}|/)(\\$\\{\\w*?:\\S*?\\}.*?){0,}(\\$\\{.*?:-/\\}|/)"
+  },
+  {
+    "rule_id": "CR-001",
+    "rule_name": "Crawler-Robot",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Crawler-Robot",
+    "rule_range": "USER_AGENT;",
+    "rule_regex": "(HTTrack|harvest|audit|dirbuster|pangolin|nmap|sqln|-scan|hydra|Parser|libwww|BBBike|sqlmap|w3af|owasp|Nikto|fimap|havij|PycURL|zmeu|BabyKrokodil|netsparker|httperf|bench| SF/)"
+  },
+  {
+    "rule_id": "SI-001",
+    "rule_name": "Sql-Injection-Select-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "select.+(from|limit)"
+  },
+  {
+    "rule_id": "SI-002",
+    "rule_name": "Sql-Injection-Union-Select-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "(?: (union(.*?)select))"
+  },
+  {
+    "rule_id": "SI-003",
+    "rule_name": "Sql-Injection-keyword-1",
     "action": "RECORD",
-    "father_rule": "R-001",
-    "rule_class": "XSS-Injection",
-    "rule_range": "HEADER;",
-    "rule_regex": "<script>document"
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "having|rongjitest"
+  },
+  {
+    "rule_id": "SI-004",
+    "rule_name": "Sql-Injection-sleep",
+    "action": "RECORD",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "sleep\\((\\s*)(\\d*)(\\s*)\\)"
+  },
+  {
+    "rule_id": "SI-005",
+    "rule_name": "Sql-Injection-from-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "(?: from\\W+information_schema\\W)"
+  },
+  {
+    "rule_id": "SI-006",
+    "rule_name": "Sql-Injection-into-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "into(\\s+)+(?: dump|out)file\\s*"
+  },
+  {
+    "rule_id": "SI-007",
+    "rule_name": "Sql-Injection-group-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "group\\s+by.+\\("
+  },
+  {
+    "rule_id": "SI-008",
+    "rule_name": "Sql-Injection-info-1",
+    "action": "DENY",
+    "father_rule": "",
+    "rule_class": "Sql-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "(?: (?: current_)user|database|schema|connection_id)\\s*\\("
+  },
+  {
+    "rule_id": "CI-001",
+    "rule_name": "Cmd-Injection-keyword-1",
+    "action": "RECORD",
+    "father_rule": "",
+    "rule_class": "Cmd-Injection",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "(?: define|eval|file_get_contents|include|require|require_once|shell_exec|phpinfo|system|passthru|preg_\\w+|execute|echo|print|print_r|var_dump|(fp)open|alert|showmodaldialog)\\("
+  },
+  {
+    "rule_id": "X-001",
+    "rule_name": "Xss-keyword-1",
+    "action": "RECORD",
+    "father_rule": "",
+    "rule_class": "Xss",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "\\<(iframe|script|body|img|layer|div|meta|style|base|object|input)"
+  },
+  {
+    "rule_id": "X-002",
+    "rule_name": "Xss-keyword-2",
+    "action": "RECORD",
+    "father_rule": "",
+    "rule_class": "Xss",
+    "rule_range": "BODY;PARAM;",
+    "rule_regex": "(onmouseover|onerror|onload)\\="
   }
 ]
+

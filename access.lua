@@ -233,8 +233,9 @@ local function black_ip_check()
             logger.log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
-        for _, black_ip in pairs(policy.IP_BLACK_LIST) do
-            if client_ip == black_ip then
+        for _, black_ip_rule in pairs(policy.IP_BLACK_LIST) do
+            local m = rule_match(client_ip, black_ip_rule, "joi")
+            if m then
                 util.block_attack()
                 return true
             end
@@ -250,8 +251,9 @@ local function white_ip_check()
             logger.log(string.format("client ip is nil, req uri: %s", ngx.var.request_uri))
             return false
         end
-        for _, white_ip in pairs(policy.IP_WHITE_LIST) do
-            if client_ip == white_ip then
+        for _, white_ip_rule in pairs(policy.IP_WHITE_LIST) do
+            local m = rule_match(client_ip, white_ip_rule, "joi")
+            if m then
                 return true
             end
         end

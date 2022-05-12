@@ -19,7 +19,8 @@
 1. **跨平台**： Nginx可以运行在哪里，WAF就可以运行在哪里
 2. **高度可配置**： 对于攻击的处理有拦截、跳转、观察等处理模式
 3. **支持流量攻击防护**： 支持对ip访问频次拦截限制、CC攻击防护
-4. **规则多维度**： 支持IP黑白名单、URI黑白名单、支持UserAgent/Request Body/Header/Request Params等进行规则匹配防护
+4. **规则多维度**： 规则支持独立规则、父子和树形结构的规则 满足更多场景和细粒度控制的需求;支持IP黑白名单、URI黑白名单、支持UserAgent/Request Body/Header/Request
+   Params等进行规则匹配防护
 5. **日志完备**： 攻击日志、流量日志以JSON格式日志保存; 方便后续管理
 6. **超高的性能和稳定性**： 规则重载不中断业务; 非攻击请求处理耗时在3ms之内; 攻击请求处理耗时在20ms之内;
 7. **支持策略更新**： 支持本地规则加载或从server中动态更新;
@@ -116,12 +117,13 @@ chmod o+w /var/log/best-nginx-waf/
 - waf配置文件：best-nginx-waf/config.lua，各项配置均有注释说明
 - 使用前请检查过滤规则是否符合自己实际情况，根据实际增删条目，防止误伤; 不确定需要观察的规则可先配置rule.action为Record 进行观察;规则的观察模式不进行拦截;
 - 规则文件全部支持正则表达式，但不区分大小写
-- 更新规则文件后，使用reload命令(/usr/local/openresty/nginx/sbin/nginx -s reload)使用配置生效，该命令不会中断服务，不建议使用restart
+- 更新规则或配置文件后，使用reload命令(/usr/local/openresty/nginx/sbin/nginx -s reload) 使生效，该命令不会中断服务，不建议使用restart
 - 所有规则在rules文件夹下, 具体配置可参考已有的规则
+- IP、Uri 规则支持正则匹配
 
 #### 🙏 讨论区
 
-如有问题可以在 GitHub 提 issue, 或者直接联系我，问题我都会及时处理
+如有问题可以在 GitHub 可提 issue, 如有优化建议或代码可以在 GitHub 可提 Pull request 或直接联系本人 我都会及时处理
 
 1. GitHub issue: [创建issue](https://github.com/zylhahah/best-nginx-waf/issues )
 2. 作者QQ : 24417148

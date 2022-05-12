@@ -1,4 +1,8 @@
 {
-    "black_uri": ["/test1"],
-    "white_uri": ["/test2"]
+  "black_uri": [
+    "/attack"
+  ],
+  "white_uri": [
+    "^/123/$"
+  ]
 }
