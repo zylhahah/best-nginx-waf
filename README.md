@@ -93,16 +93,17 @@ cd best-nginx-waf/luasocket-2.0.2
 ```bash
 vi /usr/local/openresty/nginx/conf/nginx.conf
 在http级别添加以下内容:
-        lua_package_path "/usr/local/openresty/best-nginx-waf/?.lua;/usr/local/openresty/best-nginx-waf/lua-resty-redis/lib/?.lua;/usr/local/openresty/best-nginx-waf/lua-resty-lrucache/lib/?.lua;/usr/local/openresty/best-nginx-waf/luasocket-2.0.2/src/?.lua;/usr/local/openresty/lualib/?.lua;";
-        lua_shared_dict limit 50m;
-        lua_code_cache on;
-        lua_regex_cache_max_entries 4096;
-        init_worker_by_lua_file   /usr/local/openresty/best-nginx-waf/job.lua;
-        access_by_lua_file /usr/local/openresty/best-nginx-waf/access.lua;
+  lua_package_path "/usr/local/openresty/best-nginx-waf/?.lua;/usr/local/openresty/best-nginx-waf/lua-resty-redis/lib/?.lua;/usr/local/openresty/best-nginx-waf/lua-resty-lrucache/lib/?.lua;/usr/local/openresty/best-nginx-waf/luasocket-2.0.2/src/?.lua;/usr/local/openresty/lualib/?.lua;";
+  lua_shared_dict limit 50m;
+  lua_code_cache on;
+  lua_regex_cache_max_entries 4096;
+  init_worker_by_lua_file /usr/local/openresty/best-nginx-waf/job.lua;
+  access_by_lua_file /usr/local/openresty/best-nginx-waf/access.lua;
+  body_filter_by_lua_file /usr/local/openresty/best-nginx-waf/response_filter.lua;
     
-    在server级别修改server_name:
-    #在每个vhost中(server级别)定义server_name时，建议设置一个以上的主机名，默认第一个将做为规则中的主机区别标志，例如
-    server_name  api api.test.com;
+在server级别修改server_name:
+#在每个vhost中(server级别)定义server_name时，建议设置一个以上的主机名，默认第一个将做为规则中的主机区别标志，例如
+  server_name  api api.test.com;
     
 # 修改日志目录权限,使nginx对目录可写 具体目录位置可在conf.lua文件中修改
 mkdir -p /var/log/best-nginx-waf/
