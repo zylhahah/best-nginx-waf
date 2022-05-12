@@ -178,7 +178,7 @@ local function init_jobs()
         end
     end
 
-    if config.health_check_enable ~= "on" then
+    if config.health_check_enable == "on" then
         init_health_check()
     end
 

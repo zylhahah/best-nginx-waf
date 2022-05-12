@@ -1,12 +1,12 @@
 [
   {
     "rule_id": "PT-001",
-    "rule_name": "Path-Traversal-Base",
+    "rule_name": "Path-Traversal-Base-1",
     "action": "CHAIN",
     "father_rule": "",
     "rule_class": "Path-Traversal",
     "rule_range": "URI;BODY;PARAM;",
-    "rule_regex": "\\.\\./\\.\\./|\\.(svn|bash_history|htaccess)|system32|etc[/]+passwd|:\\\\"
+    "rule_regex": "\\.\\./\\.\\./|\\.(svn|htaccess|bash_history)|system32|etc[/]+passwd|:\\\\ "
   },
   {
     "rule_id": "PT-0011",

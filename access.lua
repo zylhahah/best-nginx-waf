@@ -38,10 +38,10 @@ end
 -- 判断正则表达式
 local function rule_regex_match(data, rules, stage)
     local matchedRuleTable = {}
+    --logger.request_log(string.format("rule regex match on [%s] rule size [%s]", stage, #rules))
     for _, rule in pairs(rules) do
+        --logger.request_log(string.format("====Try Rule [%s] regex: [%s]", rule.rule_id, rule.rule_regex))
         if rule ~= nil and rule.rule_regex ~= nil then
-
-            logger.request_log(string.format("====Try Rule [%s]", rule.rule_id))
             local m = rule_match(data, rule.rule_regex, 'jio')
             if m then
                 logger.request_log(string.format("================== Matched Rule: [%s] Action: [%s] ===================", rule.rule_id, rule.action))
@@ -58,8 +58,8 @@ local function rule_regex_match(data, rules, stage)
                 table.insert(matchedRuleTable, rule)
             end
         end
-        return matchedRuleTable
     end
+    return matchedRuleTable
 end
 
 local function son_rules_check(data_for_check, FATHER_RULES, stage, limit)
