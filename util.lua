@@ -51,10 +51,10 @@ end
 -- 获取来访IP
 function _M.get_client_ip()
     local CLIENT_IP = ngx.req.get_headers()["X_real_ip"]
-    if CLIENT_IP == nil then
+    if CLIENT_IP == nil or not _M.is_ip(CLIENT_IP) then
         CLIENT_IP = ngx.req.get_headers()["X_Forwarded_For"]
     end
-    if CLIENT_IP == nil then
+    if CLIENT_IP == nil or not _M.is_ip(CLIENT_IP) then
         CLIENT_IP = ngx.var.remote_addr
     end
 
@@ -256,6 +256,51 @@ function _M.block_attack()
 end
 
 local base_char = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' -- for encoding/decoding
+
+
+
+function _M.is_ip(ip_str)
+    if type(ip_str) ~= "string" then
+        return false;
+    end
+    local len = string.len(ip_str);
+    if len < 7 or len > 15 then
+        return false;
+    end
+    --判断出现的非数字字符
+    local point = string.find(ip_str, "%p", 1); --字符"."出现的位置
+    local pointNum = 0; --字符"."出现的次数 正常ip有3个"."
+    while point ~= nil do
+        if string.sub(ipStr, point, point) ~= "." then
+            --得到非数字符号不是字符"."
+            return false;
+        end
+        pointNum = pointNum + 1;
+        point = string.find(ip_str, "%p", point + 1);
+        if pointNum > 3 then
+            return false;
+        end
+    end
+    if pointNum ~= 3 then
+        return false;
+    end
+
+    --判断数字对不对
+    local num = {};
+    for w in string.gmatch(ip_str, "%d+") do
+        num[#num + 1] = w;
+        local kk = tonumber(w);
+        if kk == nil or kk > 255 then
+            --不是数字或超过ip正常取值范围了
+            return false;
+        end
+    end
+    if #num ~= 4 then
+        --不是4段数字
+        return false;
+    end
+    return true;
+end
 
 -- decoding
 function _M.base64_dec(data)
