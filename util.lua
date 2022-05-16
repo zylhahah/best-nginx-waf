@@ -260,7 +260,7 @@ local base_char = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678
 
 
 function _M.is_ip(ip_str)
-    if type(ip_str) ~= "string" then
+    if ip_str == nil or type(ip_str) ~= "string" then
         return false;
     end
     local len = string.len(ip_str);
@@ -271,7 +271,7 @@ function _M.is_ip(ip_str)
     local point = string.find(ip_str, "%p", 1); --字符"."出现的位置
     local pointNum = 0; --字符"."出现的次数 正常ip有3个"."
     while point ~= nil do
-        if string.sub(ipStr, point, point) ~= "." then
+        if string.sub(ip_str, point, point) ~= "." then
             --得到非数字符号不是字符"."
             return false;
         end
